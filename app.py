@@ -1,677 +1,643 @@
 """
-app.py — Football Player Performance Analytics Dashboard
+app.py — Football Player Performance Analytics & Tactical Intelligence Platform
 Synthetic data only. Does not represent real-world football results.
 Run: streamlit run app.py
 """
 
+import json
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-# ── Page config ────────────────────────────────────────────────────────────────
+from modules.ui_theme import (
+    inject_custom_css,
+    style_chart,
+    render_hero,
+    render_kpi,
+    render_section_header,
+    ACCENT_GREEN,
+    ACCENT_CYAN,
+    ACCENT_PURPLE,
+    ACCENT_GOLD,
+    ACCENT_RED,
+    ACCENT_BLUE,
+    POSITION_COLORS,
+    POSITION_ICONS,
+    COUNTRY_FLAGS,
+    TEAM_COLORS,
+    TEAM_BADGES,
+    CHART_PALETTE,
+    DISCLAIMER_HTML,
+)
+from modules.pitch_board import (
+    FORMATIONS,
+    select_best_xi,
+    render_best_xi_pitch,
+)
+from modules.scouting import (
+    render_scouting_dossier,
+    render_head_to_head_duel,
+)
+from modules.analytics import (
+    enrich_dataset,
+    render_finishing_efficiency_matrix,
+    render_creative_playmaker_matrix,
+    render_team_power_rankings,
+)
+
+# ── Page Configuration ─────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Football Analytics",
+    page_title="Football Analytics Pro",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Global CSS ─────────────────────────────────────────────────────────────────
-st.markdown(
-    """
-    <style>
-    /* ── Base ── */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+# Inject Global Ultra-Modern CSS
+inject_custom_css()
 
-    /* Hide default Streamlit header/footer */
-    #MainMenu, footer, header { visibility: hidden; }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0e1117; }
-    ::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 4px; }
-
-    /* ── Sidebar ── */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1520 0%, #0e1117 100%);
-        border-right: 1px solid #1e2a3a;
-    }
-    section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
-    .sidebar-logo {
-        text-align: center;
-        padding: 8px 0 4px 0;
-    }
-    .sidebar-logo .ball { font-size: 48px; line-height: 1; }
-    .sidebar-logo h1 {
-        font-size: 18px;
-        font-weight: 800;
-        color: #00FF87 !important;
-        margin: 4px 0 0 0;
-        letter-spacing: 0.5px;
-    }
-    .sidebar-logo p {
-        font-size: 11px;
-        color: #64748b !important;
-        margin: 2px 0 0 0;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .nav-label {
-        font-size: 10px;
-        font-weight: 700;
-        color: #64748b !important;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin: 16px 0 4px 4px;
-    }
-    .filter-label {
-        font-size: 10px;
-        font-weight: 700;
-        color: #64748b !important;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin: 12px 0 4px 4px;
-    }
-    .row-count {
-        background: #1a2332;
-        border: 1px solid #1e2a3a;
-        border-radius: 6px;
-        padding: 8px 12px;
-        font-size: 12px;
-        color: #94a3b8 !important;
-        text-align: center;
-        margin-top: 8px;
-    }
-    .row-count span { color: #00FF87 !important; font-weight: 700; font-size: 15px; }
-
-    /* ── Page hero ── */
-    .page-hero {
-        background: linear-gradient(135deg, #0d2818 0%, #0e1117 60%, #0d1a2e 100%);
-        border: 1px solid #1e3a2a;
-        border-radius: 16px;
-        padding: 28px 32px 24px 32px;
-        margin-bottom: 24px;
-        position: relative;
-        overflow: hidden;
-    }
-    .page-hero::before {
-        content: "";
-        position: absolute;
-        top: -40px; right: -40px;
-        width: 160px; height: 160px;
-        background: radial-gradient(circle, rgba(0,255,135,0.08) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-    .page-hero h1 {
-        font-size: 26px;
-        font-weight: 800;
-        color: #ffffff !important;
-        margin: 0 0 6px 0;
-        letter-spacing: -0.3px;
-    }
-    .page-hero p {
-        font-size: 14px;
-        color: #64748b !important;
-        margin: 0;
-    }
-    .page-hero .accent { color: #00FF87 !important; }
-
-    /* ── Disclaimer ── */
-    .disclaimer {
-        background: linear-gradient(90deg, #1c1400 0%, #0e1117 100%);
-        border-left: 3px solid #f59e0b;
-        border-radius: 0 8px 8px 0;
-        padding: 10px 16px;
-        font-size: 12px;
-        color: #a16207 !important;
-        margin-bottom: 20px;
-    }
-    .disclaimer strong { color: #f59e0b !important; }
-
-    /* ── KPI cards ── */
-    .kpi-grid { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
-    .kpi-card {
-        flex: 1; min-width: 140px;
-        background: linear-gradient(135deg, #111827 0%, #1a2332 100%);
-        border: 1px solid #1e2a3a;
-        border-radius: 14px;
-        padding: 20px 16px 16px 16px;
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-    .kpi-card:hover { transform: translateY(-2px); border-color: #00FF87; }
-    .kpi-card::after {
-        content: "";
-        position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #00FF87, transparent);
-        border-radius: 0 0 14px 14px;
-    }
-    .kpi-icon { font-size: 22px; margin-bottom: 8px; display: block; }
-    .kpi-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-    .kpi-value { font-size: 30px; font-weight: 800; color: #00FF87; line-height: 1; }
-    .kpi-sub { font-size: 11px; color: #475569; margin-top: 4px; }
-
-    /* ── Section headers ── */
-    .section-header {
-        font-size: 15px;
-        font-weight: 700;
-        color: #e2e8f0;
-        border-left: 3px solid #00FF87;
-        padding-left: 10px;
-        margin: 28px 0 14px 0;
-        letter-spacing: 0.2px;
-    }
-
-    /* ── Chart card wrapper ── */
-    .chart-card {
-        background: #111827;
-        border: 1px solid #1e2a3a;
-        border-radius: 12px;
-        padding: 4px 4px 0 4px;
-        margin-bottom: 8px;
-    }
-
-    /* ── Dataframe ── */
-    div[data-testid="stDataFrame"] {
-        border: 1px solid #1e2a3a !important;
-        border-radius: 10px !important;
-        overflow: hidden;
-    }
-
-    /* ── Divider ── */
-    hr { border-color: #1e2a3a !important; }
-
-    /* ── Metric widget override ── */
-    div[data-testid="stMetric"] {
-        background: #111827;
-        border: 1px solid #1e2a3a;
-        border-radius: 10px;
-        padding: 14px 16px;
-    }
-    div[data-testid="stMetric"] label { color: #64748b !important; font-size: 12px !important; }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: #00FF87 !important; font-size: 22px !important; font-weight: 700 !important; }
-
-    /* ── Radio nav pills ── */
-    div[data-testid="stRadio"] > div { gap: 4px !important; }
-    div[data-testid="stRadio"] label {
-        background: #111827 !important;
-        border: 1px solid #1e2a3a !important;
-        border-radius: 8px !important;
-        padding: 8px 12px !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        transition: all 0.15s !important;
-    }
-    div[data-testid="stRadio"] label:has(input:checked) {
-        background: #0d2818 !important;
-        border-color: #00FF87 !important;
-        color: #00FF87 !important;
-    }
-
-    /* ── Download button ── */
-    div[data-testid="stDownloadButton"] button {
-        width: 100%;
-        background: linear-gradient(135deg, #065f46, #0d2818) !important;
-        border: 1px solid #00FF87 !important;
-        color: #00FF87 !important;
-        font-weight: 600 !important;
-        border-radius: 8px !important;
-        font-size: 13px !important;
-    }
-    div[data-testid="stDownloadButton"] button:hover {
-        background: #00FF87 !important;
-        color: #0e1117 !important;
-    }
-
-    /* ── Info / warning boxes ── */
-    div[data-testid="stInfo"] { border-radius: 8px; font-size: 13px; }
-    div[data-testid="stWarning"] { border-radius: 8px; font-size: 13px; }
-
-    /* ── Multiselect tags ── */
-    span[data-baseweb="tag"] { background: #0d2818 !important; border-color: #00FF87 !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ── Constants ──────────────────────────────────────────────────────────────────
-PLOTLY_TEMPLATE = "plotly_dark"
-ACCENT        = "#00FF87"
-ACCENT2       = "#7C5CD8"
-BG_CARD       = "#111827"
-BG_PLOT       = "#0d1117"
-BORDER        = "#1e2a3a"
-
-POSITION_COLORS = {
-    "Goalkeeper": "#F59E0B",
-    "Defender":   "#3B82F6",
-    "Midfielder": "#8B5CF6",
-    "Forward":    "#EF4444",
-}
-
-CHART_COLORS = [ACCENT, ACCENT2, "#F59E0B", "#EF4444", "#3B82F6", "#EC4899"]
-
-DISCLAIMER = (
-    '<div class="disclaimer">⚠️ <strong>Synthetic Data Notice:</strong> '
-    "All statistics are entirely synthetic and generated for demonstration purposes only. "
-    "They do not represent real-world football results, clubs, or players.</div>"
-)
-
-# ── Data loading ───────────────────────────────────────────────────────────────
+# ── Data Loading & Caching ─────────────────────────────────────────────────────
 @st.cache_data
-def load_data() -> pd.DataFrame:
+def load_and_enrich_data() -> pd.DataFrame:
     try:
-        df = pd.read_csv("football_players.csv")
+        raw_df = pd.read_csv("football_players.csv")
     except FileNotFoundError:
         st.error(
-            "**football_players.csv not found.** "
-            "Run `python generate_data.py` to create the dataset, then refresh."
+            "⚠️ **football_players.csv not found.** "
+            "Please run `python generate_data.py` to create the dataset, then refresh."
         )
         st.stop()
-    num_cols = df.select_dtypes(include="number").columns
-    str_cols = df.select_dtypes(include="object").columns
-    df[num_cols] = df[num_cols].fillna(0)
-    df[str_cols] = df[str_cols].fillna("Unknown")
-    return df
+
+    num_cols = raw_df.select_dtypes(include="number").columns
+    str_cols = raw_df.select_dtypes(include="object").columns
+    raw_df[num_cols] = raw_df[num_cols].fillna(0)
+    raw_df[str_cols] = raw_df[str_cols].fillna("Unknown")
+
+    return enrich_dataset(raw_df)
 
 
-# ── Chart helpers ──────────────────────────────────────────────────────────────
-def style(fig: go.Figure, height: int = 420, legend_inside: bool = False) -> go.Figure:
-    """Apply a consistent dark polish to every Plotly figure."""
-    legend_cfg = dict(
-        bgcolor="rgba(13,17,23,0.8)",
-        bordercolor=BORDER,
-        borderwidth=1,
-        font=dict(size=11, color="#94a3b8"),
-    )
-    if legend_inside:
-        legend_cfg.update(x=0.01, y=0.99, xanchor="left", yanchor="top")
-
-    fig.update_layout(
-        template=PLOTLY_TEMPLATE,
-        paper_bgcolor=BG_PLOT,
-        plot_bgcolor=BG_CARD,
-        font=dict(family="Inter, sans-serif", color="#cbd5e1", size=12),
-        height=height,
-        margin=dict(l=16, r=16, t=36, b=16),
-        legend=legend_cfg,
-        xaxis=dict(gridcolor="#1e2a3a", linecolor="#1e2a3a", zerolinecolor="#1e2a3a"),
-        yaxis=dict(gridcolor="#1e2a3a", linecolor="#1e2a3a", zerolinecolor="#1e2a3a"),
-    )
-    return fig
-
-
-def chart_wrap(fig: go.Figure) -> None:
-    """Render a chart inside a subtle card wrapper."""
-    st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def section(icon: str, title: str) -> None:
-    st.markdown(
-        f'<p class="section-header">{icon}&nbsp; {title}</p>',
-        unsafe_allow_html=True,
-    )
-
-
-# ── Shared helpers ─────────────────────────────────────────────────────────────
-def render_stats_table(df: pd.DataFrame) -> None:
-    section("📋", "Player Statistics Table")
+# ── Helper Components ──────────────────────────────────────────────────────────
+def render_stats_table(df: pd.DataFrame, title: str = "Player Statistics Registry") -> None:
+    render_section_header("📋", title, "Interactive database view with full column sorting and filtering.")
     display_cols = [
-        "player_name", "team", "position", "season", "age",
-        "appearances", "goals", "assists", "shots", "shots_on_target",
+        "player_name", "team", "position", "season", "age", "nationality",
+        "appearances", "goals", "assists", "goal_contributions", "goals_per_90",
+        "assists_per_90", "shots", "shots_on_target", "shot_accuracy",
         "minutes_played", "pass_accuracy", "rating",
         "yellow_cards", "red_cards", "clean_sheets",
     ]
-    renamed = df[display_cols].sort_values("rating", ascending=False).reset_index(drop=True)
-    renamed.columns = [c.replace("_", " ").title() for c in renamed.columns]
-    st.dataframe(renamed, use_container_width=True, height=380)
+    available_cols = [c for c in display_cols if c in df.columns]
+    renamed = df[available_cols].sort_values("rating", ascending=False).reset_index(drop=True)
+
+    # Format column names for presentation
+    renamed.columns = [
+        c.replace("_", " ").title().replace("Per 90", "/90").replace("Accuracy", "Acc %")
+        for c in renamed.columns
+    ]
+    st.dataframe(renamed, use_container_width=True, height=420)
 
 
 def empty_guard(df: pd.DataFrame) -> bool:
     if df.empty:
-        st.warning("⚠️ No players match the current filters. Try widening your selection.")
+        st.warning("⚠️ No players match the current filters. Try widening your filter selection in the sidebar.")
         return True
     return False
 
 
-def hero(icon: str, title: str, subtitle: str) -> None:
-    st.markdown(
-        f"""
-        <div class="page-hero">
-            <h1>{icon} {title}</h1>
-            <p>{subtitle}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ── Sidebar ────────────────────────────────────────────────────────────────────
-def build_sidebar(df: pd.DataFrame) -> pd.DataFrame:
+# ── Sidebar & Global Filtering ─────────────────────────────────────────────────
+def build_sidebar(df: pd.DataFrame) -> tuple[pd.DataFrame, str, str]:
     with st.sidebar:
+        # Brand identity
         st.markdown(
-            '<div class="sidebar-logo">'
-            '<div class="ball">⚽</div>'
-            '<h1>Football Analytics</h1>'
-            '<p>Performance Dashboard</p>'
-            "</div>",
+            """
+            <div class="sidebar-brand">
+                <div class="brand-badge">⚡ PRO EDITION</div>
+                <h2>FOOTBALL ANALYTICS</h2>
+                <p>Tactical Intelligence Platform</p>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
-        st.markdown("---")
 
-        st.markdown('<p class="nav-label">Navigate</p>', unsafe_allow_html=True)
-        page = st.radio(
-            "page",
-            ["🏠  Overview", "🔍  Player Analysis", "🏟️  Team Analysis", "📐  Position Analysis"],
+        st.markdown('<p class="sidebar-nav-title">Navigation</p>', unsafe_allow_html=True)
+        nav_options = [
+            "🏠  Overview & Pulse",
+            "⚽  Tactical Pitch & Best XI",
+            "🌟  Scouting Dossier",
+            "🔍  Player Comparison & Duel",
+            "🏟️  Team Analytics & Standings",
+            "📐  Positional Deep-Dive",
+        ]
+        page = st.radio("navigation_menu", nav_options, label_visibility="collapsed")
+
+        st.markdown("---")
+        st.markdown('<p class="sidebar-nav-title">Metric Mode</p>', unsafe_allow_html=True)
+        metric_mode = st.radio(
+            "metric_mode",
+            ["📊 Raw Season Totals", "⚡ Normalized Per 90 Mins"],
             label_visibility="collapsed",
         )
 
         st.markdown("---")
-        st.markdown('<p class="filter-label">Filters</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sidebar-nav-title">Quick Preset Filters</p>', unsafe_allow_html=True)
+        preset = st.selectbox(
+            "Filter Presets",
+            [
+                "🌐 All Players",
+                "⚡ Wonderkids (Age ≤ 22)",
+                "👑 Prime Stars (Age 23–29)",
+                "🛡️ Veterans (Age ≥ 30)",
+                "⭐ Elite Tier (Rating ≥ 8.0)",
+                "🥅 Goal Machines (Goals ≥ 10)",
+            ],
+            label_visibility="collapsed",
+        )
+
+        st.markdown('<p class="sidebar-nav-title">Granular Filters</p>', unsafe_allow_html=True)
 
         seasons   = sorted(df["season"].unique())
         teams     = sorted(df["team"].unique())
         positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"]
 
-        sel_seasons   = st.multiselect("📅 Season",   seasons,   default=seasons)
-        sel_teams     = st.multiselect("🏟️ Team",     teams,     default=teams)
-        sel_positions = st.multiselect("🎽 Position", positions, default=positions)
-        player_search = st.text_input("🔍 Search player", placeholder="e.g. Luca Rossi")
+        sel_seasons   = st.multiselect("📅 Seasons", seasons, default=seasons)
+        sel_teams     = st.multiselect("🏟️ Clubs", teams, default=teams)
+        sel_positions = st.multiselect("🎽 Positions", positions, default=positions)
 
-        # Apply filters
+        min_age, max_age = int(df["age"].min()), int(df["age"].max())
+        sel_age = st.slider("🎂 Age Range", min_value=min_age, max_value=max_age, value=(min_age, max_age))
+
+        min_mins = st.slider("⏱️ Min Minutes Played", min_value=0, max_value=3200, value=0, step=100)
+        player_search = st.text_input("🔍 Search Player Name", placeholder="e.g. Luca Rossi")
+
+        # ── Filter Application ──
+        filtered = df.copy()
+
+        # Preset rules
+        if preset == "⚡ Wonderkids (Age ≤ 22)":
+            filtered = filtered[filtered["age"] <= 22]
+        elif preset == "👑 Prime Stars (Age 23–29)":
+            filtered = filtered[(filtered["age"] >= 23) & (filtered["age"] <= 29)]
+        elif preset == "🛡️ Veterans (Age ≥ 30)":
+            filtered = filtered[filtered["age"] >= 30]
+        elif preset == "⭐ Elite Tier (Rating ≥ 8.0)":
+            filtered = filtered[filtered["rating"] >= 8.0]
+        elif preset == "🥅 Goal Machines (Goals ≥ 10)":
+            filtered = filtered[filtered["goals"] >= 10]
+
+        # Granular rules
         mask = (
-            df["season"].isin(sel_seasons   or seasons)
-            & df["team"].isin(sel_teams     or teams)
-            & df["position"].isin(sel_positions or positions)
+            filtered["season"].isin(sel_seasons or seasons)
+            & filtered["team"].isin(sel_teams or teams)
+            & filtered["position"].isin(sel_positions or positions)
+            & (filtered["age"] >= sel_age[0])
+            & (filtered["age"] <= sel_age[1])
+            & (filtered["minutes_played"] >= min_mins)
         )
-        filtered = df[mask].copy()
+        filtered = filtered[mask]
+
         if player_search.strip():
             filtered = filtered[
-                filtered["player_name"].str.contains(
-                    player_search.strip(), case=False, na=False
-                )
+                filtered["player_name"].str.contains(player_search.strip(), case=False, na=False)
             ]
 
         st.markdown("---")
+        # Export Hub
+        st.markdown('<p class="sidebar-nav-title">Export Intelligence</p>', unsafe_allow_html=True)
         csv_bytes = filtered.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="⬇️  Download filtered CSV",
+            label="⬇️ Download Filtered CSV",
             data=csv_bytes,
-            file_name="filtered_football_data.csv",
+            file_name="football_analytics_filtered.csv",
             mime="text/csv",
         )
+
+        json_bytes = filtered.to_json(orient="records", indent=2).encode("utf-8")
+        st.download_button(
+            label="📦 Export Filtered JSON",
+            data=json_bytes,
+            file_name="football_analytics_filtered.json",
+            mime="application/json",
+        )
+
         st.markdown(
-            f'<div class="row-count"><span>{len(filtered):,}</span><br>rows after filtering</div>',
+            f"""
+            <div style="background:#111827; border:1px solid #1F293D; border-radius:8px; padding:10px; text-align:center; margin-top:12px;">
+                <span style="color:#00FF87; font-weight:800; font-size:1.1rem;">{len(filtered):,}</span>
+                <span style="color:#94A3B8; font-size:0.75rem; display:block;">Active Match Records</span>
+                <span style="color:#64748B; font-size:0.7rem;">{filtered['player_name'].nunique()} unique players</span>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
-    return filtered, page
+    return filtered, page, metric_mode
 
 
-# ── Page 1: Overview ───────────────────────────────────────────────────────────
-def render_overview(df: pd.DataFrame) -> None:
-    hero("⚽", "Overview", "Season-level snapshot — KPIs, top scorers and highest-rated players.")
-    st.markdown(DISCLAIMER, unsafe_allow_html=True)
+# ── Page 1: Overview & Pulse ───────────────────────────────────────────────────
+def render_overview(df: pd.DataFrame, metric_mode: str) -> None:
+    render_hero(
+        "⚽",
+        "Overview & League Pulse",
+        "High-altitude performance telemetry, league milestones, top scorers, and season momentum.",
+        f"{df['player_name'].nunique()} Active Athletes",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
 
     if empty_guard(df):
         return
 
-    # ── KPI row ────────────────────────────────────────────────────────────────
-    total_players = df["player_name"].nunique()
-    total_goals   = int(df["goals"].sum())
-    total_assists = int(df["assists"].sum())
-    total_minutes = int(df["minutes_played"].sum())
-    avg_rating    = round(float(df["rating"].mean()), 2)
-    top_scorer    = df.groupby("player_name")["goals"].sum().idxmax()
+    # ── KPI Cards Row (6 Cards) ──
+    tot_players = df["player_name"].nunique()
+    tot_goals   = int(df["goals"].sum())
+    tot_assists = int(df["assists"].sum())
+    tot_contrib = int(df["goal_contributions"].sum())
+    tot_minutes = int(df["minutes_played"].sum())
+    avg_rating  = round(float(df["rating"].mean()), 2)
+    top_scorer  = df.groupby("player_name")["goals"].sum().idxmax()
+    top_scorer_goals = int(df.groupby("player_name")["goals"].sum().max())
 
-    kpis = [
-        ("👤", "Players",          f"{total_players:,}",    "unique in selection"),
-        ("⚽", "Goals",             f"{total_goals:,}",       "combined total"),
-        ("🅰️", "Assists",           f"{total_assists:,}",     "combined total"),
-        ("⏱️", "Minutes Played",    f"{total_minutes:,}",     "across all matches"),
-        ("⭐", "Avg Rating",        f"{avg_rating}",          f"top: {top_scorer.split()[0]}"),
-    ]
-
-    cols = st.columns(5, gap="small")
-    for col, (icon, label, value, sub) in zip(cols, kpis):
-        col.markdown(
-            f'<div class="kpi-card">'
-            f'<span class="kpi-icon">{icon}</span>'
-            f'<div class="kpi-label">{label}</div>'
-            f'<div class="kpi-value">{value}</div>'
-            f'<div class="kpi-sub">{sub}</div>'
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+    c1, c2, c3, c4, c5, c6 = st.columns(6, gap="small")
+    with c1:
+        render_kpi("👤", "Unique Players", f"{tot_players:,}", f"across {df['team'].nunique()} clubs", ACCENT_GREEN)
+    with c2:
+        render_kpi("⚽", "Total Goals", f"{tot_goals:,}", f"Top: {top_scorer.split()[0]} ({top_scorer_goals})", ACCENT_GREEN)
+    with c3:
+        render_kpi("🅰️", "Total Assists", f"{tot_assists:,}", f"avg {(tot_assists/max(1, tot_players)):.1f}/player", ACCENT_CYAN)
+    with c4:
+        render_kpi("🔥", "Goal Contrib.", f"{tot_contrib:,}", "Goals + Assists combined", ACCENT_PURPLE)
+    with c5:
+        render_kpi("⏱️", "Minutes Played", f"{tot_minutes:,}", f"avg {(tot_minutes/max(1, len(df))):.0f} m/row", ACCENT_BLUE)
+    with c6:
+        render_kpi("⭐", "Average Rating", f"{avg_rating}", "scale 5.0 - 10.0", ACCENT_GOLD)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Top-10 charts ──────────────────────────────────────────────────────────
-    col1, col2 = st.columns(2, gap="medium")
+    # ── Top Performers Chart Grid ──
+    col1, col2, col3 = st.columns(3, gap="medium")
+
+    # Mapping of positions for bar coloring
+    pos_map = df.drop_duplicates("player_name").set_index("player_name")["position"]
 
     with col1:
-        section("🥅", "Top 10 Scorers")
+        render_section_header("🥅", "Top 10 Scorers", "Highest total goals in selection")
         top_goals = (
             df.groupby("player_name", as_index=False)["goals"]
             .sum()
             .nlargest(10, "goals")
             .sort_values("goals")
         )
-        # Add position colour per player
-        pos_map = df.drop_duplicates("player_name").set_index("player_name")["position"]
         top_goals["position"] = top_goals["player_name"].map(pos_map)
         top_goals["color"] = top_goals["position"].map(POSITION_COLORS)
 
-        fig = go.Figure(go.Bar(
+        fig_tg = go.Figure(go.Bar(
             x=top_goals["goals"],
             y=top_goals["player_name"],
             orientation="h",
-            marker=dict(
-                color=top_goals["color"],
-                line=dict(color="rgba(0,0,0,0)", width=0),
-            ),
+            marker=dict(color=top_goals["color"], line=dict(width=0)),
             text=top_goals["goals"],
             textposition="outside",
-            textfont=dict(color="#94a3b8", size=11),
-            hovertemplate="<b>%{y}</b><br>Goals: %{x}<extra></extra>",
+            textfont=dict(color="#CBD5E1", size=11),
+            hovertemplate="<b>%{y}</b><br>Goals: <b>%{x}</b><extra></extra>",
         ))
-        fig = style(fig, height=380)
-        fig.update_layout(xaxis_title="Goals", yaxis_title="", showlegend=False)
-        chart_wrap(fig)
+        fig_tg = style_chart(fig_tg, height=360, show_legend=False)
+        fig_tg.update_layout(xaxis_title="Goals Scored", yaxis_title="")
+        st.plotly_chart(fig_tg, use_container_width=True)
 
     with col2:
-        section("⭐", "Top 10 by Rating")
-        top_rating = (
+        render_section_header("⭐", "Top 10 by Rating", "Highest average match performance rating")
+        top_rat = (
             df.groupby("player_name", as_index=False)["rating"]
             .mean()
             .round(2)
             .nlargest(10, "rating")
             .sort_values("rating")
         )
-        top_rating["position"] = top_rating["player_name"].map(pos_map)
-        top_rating["color"] = top_rating["position"].map(POSITION_COLORS)
+        top_rat["position"] = top_rat["player_name"].map(pos_map)
+        top_rat["color"] = top_rat["position"].map(POSITION_COLORS)
 
-        fig2 = go.Figure(go.Bar(
-            x=top_rating["rating"],
-            y=top_rating["player_name"],
+        fig_tr = go.Figure(go.Bar(
+            x=top_rat["rating"],
+            y=top_rat["player_name"],
             orientation="h",
-            marker=dict(color=top_rating["color"]),
-            text=top_rating["rating"],
+            marker=dict(color=top_rat["color"], line=dict(width=0)),
+            text=top_rat["rating"],
             textposition="outside",
-            textfont=dict(color="#94a3b8", size=11),
-            hovertemplate="<b>%{y}</b><br>Rating: %{x:.2f}<extra></extra>",
+            textfont=dict(color="#CBD5E1", size=11),
+            hovertemplate="<b>%{y}</b><br>Rating: <b>%{x:.2f} ⭐</b><extra></extra>",
         ))
-        fig2 = style(fig2, height=380)
-        fig2.update_layout(xaxis_title="Avg Rating", yaxis_title="", showlegend=False,
-                           xaxis=dict(range=[6, top_rating["rating"].max() + 0.3]))
-        chart_wrap(fig2)
+        fig_tr = style_chart(fig_tr, height=360, show_legend=False)
+        fig_tr.update_layout(xaxis_title="Avg Rating", yaxis_title="", xaxis=dict(range=[6, 9.8]))
+        st.plotly_chart(fig_tr, use_container_width=True)
 
-    # ── Goals trend by season ──────────────────────────────────────────────────
-    section("📈", "Goals & Assists Trend by Season")
+    with col3:
+        render_section_header("🅰️", "Top 10 Playmakers", "Highest total assists provided")
+        top_ast = (
+            df.groupby("player_name", as_index=False)["assists"]
+            .sum()
+            .nlargest(10, "assists")
+            .sort_values("assists")
+        )
+        top_ast["position"] = top_ast["player_name"].map(pos_map)
+        top_ast["color"] = top_ast["position"].map(POSITION_COLORS)
+
+        fig_ta = go.Figure(go.Bar(
+            x=top_ast["assists"],
+            y=top_ast["player_name"],
+            orientation="h",
+            marker=dict(color=ACCENT_CYAN, line=dict(width=0)),
+            text=top_ast["assists"],
+            textposition="outside",
+            textfont=dict(color="#CBD5E1", size=11),
+            hovertemplate="<b>%{y}</b><br>Assists: <b>%{x}</b><extra></extra>",
+        ))
+        fig_ta = style_chart(fig_ta, height=360, show_legend=False)
+        fig_ta.update_layout(xaxis_title="Assists Provided", yaxis_title="")
+        st.plotly_chart(fig_ta, use_container_width=True)
+
+    # ── Season Trajectory ──
+    render_section_header("📈", "Goals & Assists Season Trajectory", "Year-over-year aggregate production trend")
     season_agg = (
         df.groupby("season", as_index=False)
-        .agg(Goals=("goals", "sum"), Assists=("assists", "sum"))
+        .agg(Goals=("goals", "sum"), Assists=("assists", "sum"), AvgRating=("rating", "mean"))
         .sort_values("season")
     )
-    fig_trend = go.Figure()
-    fig_trend.add_trace(go.Scatter(
+    fig_st = go.Figure()
+    fig_st.add_trace(go.Scatter(
         x=season_agg["season"], y=season_agg["Goals"],
-        mode="lines+markers+text", name="Goals",
-        line=dict(color=ACCENT, width=3),
-        marker=dict(size=10, color=ACCENT, line=dict(color="#0e1117", width=2)),
+        mode="lines+markers+text", name="Total Goals",
+        line=dict(color=ACCENT_GREEN, width=3.5),
+        marker=dict(size=10, color=ACCENT_GREEN, line=dict(color="#0A0E17", width=2)),
         text=season_agg["Goals"], textposition="top center",
-        textfont=dict(color=ACCENT, size=12),
+        textfont=dict(color=ACCENT_GREEN, size=12, family="Plus Jakarta Sans"),
     ))
-    fig_trend.add_trace(go.Scatter(
+    fig_st.add_trace(go.Scatter(
         x=season_agg["season"], y=season_agg["Assists"],
-        mode="lines+markers+text", name="Assists",
-        line=dict(color=ACCENT2, width=3),
-        marker=dict(size=10, color=ACCENT2, line=dict(color="#0e1117", width=2)),
+        mode="lines+markers+text", name="Total Assists",
+        line=dict(color=ACCENT_CYAN, width=3.5),
+        marker=dict(size=10, color=ACCENT_CYAN, line=dict(color="#0A0E17", width=2)),
         text=season_agg["Assists"], textposition="bottom center",
-        textfont=dict(color=ACCENT2, size=12),
+        textfont=dict(color=ACCENT_CYAN, size=12, family="Plus Jakarta Sans"),
     ))
-    fig_trend = style(fig_trend, height=320)
-    fig_trend.update_layout(xaxis_title="Season", yaxis_title="Total")
-    chart_wrap(fig_trend)
+    fig_st = style_chart(fig_st, height=320)
+    fig_st.update_layout(xaxis_title="Season", yaxis_title="Total Output")
+    st.plotly_chart(fig_st, use_container_width=True)
 
     render_stats_table(df)
 
 
-# ── Page 2: Player Analysis ────────────────────────────────────────────────────
-def render_player_analysis(df: pd.DataFrame) -> None:
-    hero("🔍", "Player Analysis", "Compare players head-to-head with radar charts and scatter insights.")
-    st.markdown(DISCLAIMER, unsafe_allow_html=True)
+# ── Page 2: Tactical Pitch & Best XI (NEW) ─────────────────────────────────────
+def render_tactical_pitch_page(df: pd.DataFrame) -> None:
+    render_hero(
+        "⚽",
+        "Tactical Pitch & Best XI",
+        "Interactive virtual pitch board displaying the highest-rated Dream Team in your preferred tactical formation.",
+        "Opta Tactical Engine",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
 
     if empty_guard(df):
         return
 
-    # ── Radar comparison ───────────────────────────────────────────────────────
-    section("🕸️", "Player Comparison Radar")
-
-    all_players     = sorted(df["player_name"].unique())
-    default_players = all_players[:2] if len(all_players) >= 2 else all_players
-    selected_players = st.multiselect(
-        "Select 2–5 players to compare:",
-        options=all_players,
-        default=default_players,
-        max_selections=5,
-    )
-
-    RADAR_STATS  = ["goals", "assists", "pass_accuracy", "rating", "shots_on_target", "minutes_played"]
-    RADAR_LABELS = ["Goals", "Assists", "Pass Acc.", "Rating", "Shots on Target", "Minutes"]
-
-    if len(selected_players) < 2:
-        st.info("ℹ️ Select at least 2 players to display the radar chart.")
-    else:
-        player_df = df[df["player_name"].isin(selected_players)].groupby("player_name")[RADAR_STATS].mean()
-        norm_df   = player_df.copy()
-        for col in RADAR_STATS:
-            lo, hi = player_df[col].min(), player_df[col].max()
-            norm_df[col] = (player_df[col] - lo) / (hi - lo) if hi > lo else 0.5
-
-        fig_radar = go.Figure()
-        for i, player in enumerate(selected_players):
-            if player not in norm_df.index:
-                continue
-            vals = norm_df.loc[player, RADAR_STATS].tolist() + norm_df.loc[player, RADAR_STATS].tolist()[:1]
-            fig_radar.add_trace(go.Scatterpolar(
-                r=vals,
-                theta=RADAR_LABELS + [RADAR_LABELS[0]],
-                fill="toself",
-                name=player,
-                line=dict(color=CHART_COLORS[i % len(CHART_COLORS)], width=2),
-                fillcolor=CHART_COLORS[i % len(CHART_COLORS)].replace("#", "rgba(") + ",0.12)",
-                opacity=0.9,
-            ))
-        fig_radar.update_layout(
-            polar=dict(
-                bgcolor="#0d1117",
-                radialaxis=dict(visible=True, range=[0, 1], color="#475569",
-                                gridcolor="#1e2a3a", linecolor="#1e2a3a"),
-                angularaxis=dict(color="#94a3b8", gridcolor="#1e2a3a", linecolor="#1e2a3a"),
-            ),
-            showlegend=True,
+    col_ctrl, col_info = st.columns([1, 2], gap="medium")
+    with col_ctrl:
+        formation_name = st.selectbox(
+            "Select Tactical Formation",
+            list(FORMATIONS.keys()),
+            index=0,
         )
-        fig_radar = style(fig_radar, height=500, legend_inside=False)
-        chart_wrap(fig_radar)
 
-        # Stats comparison table below radar
+    slots_data, squad_df = select_best_xi(df, formation_name)
+
+    # Best XI Squad KPIs
+    if not squad_df.empty:
+        sq_rating = round(float(squad_df["rating"].mean()), 2)
+        sq_goals  = int(squad_df["goals"].sum())
+        sq_assists= int(squad_df["assists"].sum())
+        sq_age    = round(float(squad_df["age"].mean()), 1)
+
+        with col_info:
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Squad Avg Rating", f"★ {sq_rating}")
+            c2.metric("Total Goals", f"{sq_goals} ⚽")
+            c3.metric("Total Assists", f"{sq_assists} 🅰️")
+            c4.metric("Average Squad Age", f"{sq_age} yrs")
+
+    # Render pitch
+    pitch_fig = render_best_xi_pitch(slots_data, formation_name)
+    st.plotly_chart(pitch_fig, use_container_width=True)
+
+    # Squad Roster Sheet
+    render_section_header("📋", f"Best XI Starting Lineup ({formation_name})", "Selected purely on match rating merit from filtered data.")
+    if not squad_df.empty:
+        roster_disp = squad_df[[
+            "tactical_role", "player_name", "position", "team", "nationality",
+            "age", "rating", "goals", "assists", "clean_sheets", "pass_accuracy"
+        ]].rename(columns={
+            "tactical_role": "Role",
+            "player_name": "Player Name",
+            "position": "Position",
+            "team": "Club",
+            "nationality": "Nation",
+            "age": "Age",
+            "rating": "Rating",
+            "goals": "Goals",
+            "assists": "Assists",
+            "clean_sheets": "Clean Sheets",
+            "pass_accuracy": "Pass Acc %",
+        })
+        st.dataframe(roster_disp, use_container_width=True, hide_index=True)
+
+
+# ── Page 3: Player Scouting Dossier (NEW) ──────────────────────────────────────
+def render_scouting_page(df: pd.DataFrame) -> None:
+    render_hero(
+        "🌟",
+        "Player Scouting Dossier",
+        "EA FC style scouting dossier, comprehensive radar benchmarks against positional peers, and career form trajectory.",
+        "Scout Pro 360",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
+
+    if empty_guard(df):
+        return
+
+    all_players = sorted(df["player_name"].unique())
+    # Find highest rated player as default
+    top_p = df.groupby("player_name")["rating"].mean().idxmax()
+    def_idx = all_players.index(top_p) if top_p in all_players else 0
+
+    selected_player = st.selectbox("Select Player to Inspect", all_players, index=def_idx)
+
+    render_scouting_dossier(df, selected_player)
+
+
+# ── Page 4: Player Comparison & Duel ───────────────────────────────────────────
+def render_player_comparison_page(df: pd.DataFrame, metric_mode: str) -> None:
+    render_hero(
+        "🔍",
+        "Player Comparison & Head-to-Head Duel",
+        "Engage in 1-on-1 battle duels or multi-player radar comparisons with statistical scatter efficiency regressions.",
+        "Combat Analytics",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
+
+    if empty_guard(df):
+        return
+
+    tab_duel, tab_multi = st.tabs(["⚔️ Head-to-Head Duel (1v1)", "🕸️ Multi-Player Radar & Scatter Intelligence"])
+
+    all_players = sorted(df["player_name"].unique())
+
+    # ── Tab 1: Head-to-Head Duel ──
+    with tab_duel:
+        render_section_header("⚔️", "Head-to-Head Player Duel Arena")
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            p1 = st.selectbox("Select Contender 1", all_players, index=0, key="duel_p1")
+        with c2:
+            p2 = st.selectbox("Select Contender 2", all_players, index=min(1, len(all_players)-1), key="duel_p2")
+
+        if p1 == p2:
+            st.info("ℹ️ Select two different players to see the head-to-head battle.")
+        else:
+            render_head_to_head_duel(df, p1, p2)
+
+    # ── Tab 2: Multi-Player Radar & Scatter Intelligence ──
+    with tab_multi:
+        render_section_header("🕸️", "Multi-Player Normalized Radar Comparison")
+        default_players = all_players[:3] if len(all_players) >= 3 else all_players
+        comp_players = st.multiselect(
+            "Select 2 to 5 players to compare on the radar:",
+            options=all_players,
+            default=default_players,
+            max_selections=5,
+        )
+
+        RADAR_STATS  = ["goals", "assists", "pass_accuracy", "rating", "shots_on_target", "minutes_played"]
+        RADAR_LABELS = ["Goals", "Assists", "Pass Acc %", "Match Rating", "Shots on Target", "Minutes"]
+
+        if len(comp_players) < 2:
+            st.info("ℹ️ Select at least 2 players to generate the comparative radar chart.")
+        else:
+            player_df = df[df["player_name"].isin(comp_players)].groupby("player_name")[RADAR_STATS].mean()
+            norm_df   = player_df.copy()
+            for col in RADAR_STATS:
+                lo, hi = player_df[col].min(), player_df[col].max()
+                norm_df[col] = (player_df[col] - lo) / (hi - lo) if hi > lo else 0.5
+
+            fig_radar = go.Figure()
+            for i, p in enumerate(comp_players):
+                if p not in norm_df.index:
+                    continue
+                vals = norm_df.loc[p, RADAR_STATS].tolist() + norm_df.loc[p, RADAR_STATS].tolist()[:1]
+                p_color = CHART_PALETTE[i % len(CHART_PALETTE)]
+                fig_radar.add_trace(go.Scatterpolar(
+                    r=vals,
+                    theta=RADAR_LABELS + [RADAR_LABELS[0]],
+                    fill="toself",
+                    name=p,
+                    line=dict(color=p_color, width=2.5),
+                    fillcolor=p_color.replace("#", "rgba(") + ",0.14)" if p_color.startswith("#") else "rgba(0,255,135,0.2)",
+                ))
+
+            fig_radar.update_layout(
+                polar=dict(
+                    bgcolor="#0D131F",
+                    radialaxis=dict(visible=True, range=[0, 1], color="#475569", gridcolor="#1F293D"),
+                    angularaxis=dict(color="#94A3B8", gridcolor="#1F293D"),
+                ),
+                showlegend=True,
+            )
+            fig_radar = style_chart(fig_radar, height=480, legend_inside=False)
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+            # Comparative table
+            comp_table = player_df.copy().round(2)
+            comp_table.index.name = "Player"
+            comp_table.columns = RADAR_LABELS
+            st.dataframe(comp_table.reset_index(), use_container_width=True, hide_index=True)
+
         st.markdown("<br>", unsafe_allow_html=True)
-        comp_df = player_df.copy().round(2)
-        comp_df.index.name = "Player"
-        comp_df.columns = RADAR_LABELS
-        st.dataframe(comp_df.reset_index(), use_container_width=True, hide_index=True)
 
-    # ── Goals vs Assists scatter ───────────────────────────────────────────────
-    section("🎯", "Goals vs Assists")
-    fig_ga = px.scatter(
-        df,
-        x="goals", y="assists",
-        color="position",
-        size="rating", size_max=20,
-        hover_data={"player_name": True, "team": True, "season": True,
-                    "goals": True, "assists": True, "rating": True},
-        labels={"goals": "Goals", "assists": "Assists", "position": "Position"},
-        color_discrete_map=POSITION_COLORS,
-    )
-    fig_ga.update_traces(marker=dict(line=dict(width=1, color="#0e1117")))
-    fig_ga = style(fig_ga, height=440)
-    chart_wrap(fig_ga)
+        # ── Goals vs Assists Scatter ──
+        render_section_header("🎯", "Goals vs Assists Correlation", "Sized by match rating and colored by position.")
+        fig_ga = px.scatter(
+            df,
+            x="goals", y="assists",
+            color="position",
+            size="rating", size_max=22,
+            hover_name="player_name",
+            hover_data={"team": True, "season": True, "goals": True, "assists": True, "rating": ":.2f", "position": False},
+            labels={"goals": "Goals Scored", "assists": "Assists Provided", "position": "Position"},
+            color_discrete_map=POSITION_COLORS,
+        )
+        fig_ga.update_traces(marker=dict(line=dict(width=1.5, color="#0A0E17")))
+        fig_ga = style_chart(fig_ga, height=440)
+        st.plotly_chart(fig_ga, use_container_width=True)
 
-    # ── Shots vs Goals with trendline ─────────────────────────────────────────
-    section("🔫", "Shots vs Goals (with Efficiency Trendline)")
-    scatter_df = df[df["shots"] > 0].copy()
-    fig_sg = px.scatter(
-        scatter_df,
-        x="shots", y="goals",
-        color="position",
-        hover_data={"player_name": True, "team": True, "season": True},
-        labels={"shots": "Shots", "goals": "Goals", "position": "Position"},
-        color_discrete_map=POSITION_COLORS,
-    )
-    fig_sg.update_traces(marker=dict(size=9, line=dict(width=1, color="#0e1117")))
+        # ── Shots vs Goals with Trendline ──
+        render_section_header("🔫", "Shots vs Goals (Finishing Efficiency Regression)")
+        scatter_df = df[df["shots"] > 0].copy()
+        fig_sg = px.scatter(
+            scatter_df,
+            x="shots", y="goals",
+            color="position",
+            hover_name="player_name",
+            hover_data={"team": True, "season": True, "shots": True, "goals": True, "shot_conversion": ":.1f%"},
+            labels={"shots": "Total Shots", "goals": "Goals Scored", "position": "Position"},
+            color_discrete_map=POSITION_COLORS,
+        )
+        fig_sg.update_traces(marker=dict(size=9, line=dict(width=1, color="#0A0E17")))
 
-    z      = np.polyfit(scatter_df["shots"], scatter_df["goals"], 1)
-    p_line = np.poly1d(z)
-    x_rng  = np.linspace(scatter_df["shots"].min(), scatter_df["shots"].max(), 120)
-    fig_sg.add_trace(go.Scatter(
-        x=x_rng, y=p_line(x_rng),
-        mode="lines", name="Trend",
-        line=dict(color=ACCENT, width=2.5, dash="dot"),
-        hoverinfo="skip",
-    ))
-    fig_sg = style(fig_sg, height=440)
-    chart_wrap(fig_sg)
+        # Regression line
+        if len(scatter_df) >= 2:
+            z = np.polyfit(scatter_df["shots"], scatter_df["goals"], 1)
+            p_line = np.poly1d(z)
+            x_rng = np.linspace(scatter_df["shots"].min(), scatter_df["shots"].max(), 100)
+            fig_sg.add_trace(go.Scatter(
+                x=x_rng, y=p_line(x_rng),
+                mode="lines", name="Efficiency Trend",
+                line=dict(color=ACCENT_GREEN, width=2.5, dash="dot"),
+                hoverinfo="skip",
+            ))
+        fig_sg = style_chart(fig_sg, height=440)
+        st.plotly_chart(fig_sg, use_container_width=True)
 
-    # ── Pass accuracy vs rating ───────────────────────────────────────────────
-    section("📊", "Pass Accuracy vs Rating")
-    fig_pr = px.scatter(
-        df,
-        x="pass_accuracy", y="rating",
-        color="position",
-        hover_data={"player_name": True, "team": True},
-        labels={"pass_accuracy": "Pass Accuracy (%)", "rating": "Rating", "position": "Position"},
-        color_discrete_map=POSITION_COLORS,
-    )
-    fig_pr.update_traces(marker=dict(size=8, line=dict(width=1, color="#0e1117")))
-    fig_pr = style(fig_pr, height=400)
-    chart_wrap(fig_pr)
+        # ── Finishing Efficiency Quadrant Matrix (NEW) ──
+        render_section_header("📊", "Finishing Efficiency Quadrants (Shots vs Conversion Rate)")
+        fig_fin = render_finishing_efficiency_matrix(df)
+        st.plotly_chart(fig_fin, use_container_width=True)
+
+        # ── Pass Accuracy vs Rating Scatter ──
+        render_section_header("📐", "Pass Accuracy vs Match Rating Distribution")
+        fig_pr = px.scatter(
+            df,
+            x="pass_accuracy", y="rating",
+            color="position",
+            hover_name="player_name",
+            hover_data={"team": True, "pass_accuracy": ":.1f%", "rating": ":.2f"},
+            labels={"pass_accuracy": "Pass Accuracy (%)", "rating": "Rating", "position": "Position"},
+            color_discrete_map=POSITION_COLORS,
+        )
+        fig_pr.update_traces(marker=dict(size=8, line=dict(width=1, color="#0A0E17")))
+        fig_pr = style_chart(fig_pr, height=400)
+        st.plotly_chart(fig_pr, use_container_width=True)
 
     render_stats_table(df)
 
 
-# ── Page 3: Team Analysis ──────────────────────────────────────────────────────
-def render_team_analysis(df: pd.DataFrame) -> None:
-    hero("🏟️", "Team Analysis", "Aggregate goals, assists and squad composition broken down by club.")
-    st.markdown(DISCLAIMER, unsafe_allow_html=True)
+# ── Page 5: Team Analytics & Standings ─────────────────────────────────────────
+def render_team_analytics_page(df: pd.DataFrame, metric_mode: str) -> None:
+    render_hero(
+        "🏟️",
+        "Team Analytics & Power Rankings",
+        "Club attacking potency, squad composition, attacking vs defensive dominance matrix, and fair play leaderboard.",
+        f"{df['team'].nunique()} Competing Clubs",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
 
     if empty_guard(df):
         return
@@ -679,67 +645,61 @@ def render_team_analysis(df: pd.DataFrame) -> None:
     team_agg = (
         df.groupby("team", as_index=False)
         .agg(
-            total_goals   =("goals",       "sum"),
-            total_assists =("assists",      "sum"),
-            avg_rating    =("rating",       "mean"),
-            player_count  =("player_name",  "nunique"),
-            total_minutes =("minutes_played","sum"),
+            total_goals=("goals", "sum"),
+            total_assists=("assists", "sum"),
+            avg_rating=("rating", "mean"),
+            player_count=("player_name", "nunique"),
+            total_minutes=("minutes_played", "sum"),
+            clean_sheets=("clean_sheets", "sum"),
+            yellow_cards=("yellow_cards", "sum"),
+            red_cards=("red_cards", "sum"),
         )
         .round({"avg_rating": 2})
         .sort_values("total_goals", ascending=False)
     )
 
-    # ── KPI row for teams ──────────────────────────────────────────────────────
-    best_team   = team_agg.iloc[0]["team"]
-    most_goals  = int(team_agg.iloc[0]["total_goals"])
-    best_rating = team_agg.loc[team_agg["avg_rating"].idxmax(), "team"]
-    biggest_sq  = team_agg.loc[team_agg["player_count"].idxmax(), "team"]
+    # ── Team KPI Cards (4 Cards) ──
+    best_scoring_club = team_agg.iloc[0]["team"]
+    best_goals_count  = int(team_agg.iloc[0]["total_goals"])
+    highest_rated_club= team_agg.loc[team_agg["avg_rating"].idxmax(), "team"]
+    highest_rating_val= team_agg["avg_rating"].max()
+    most_clean_sheets_club = team_agg.loc[team_agg["clean_sheets"].idxmax(), "team"]
+    clean_sheets_val  = int(team_agg["clean_sheets"].max())
 
-    kpis = [
-        ("🏆", "Top Scoring Club",    best_team,   f"{most_goals} goals"),
-        ("⭐", "Highest Rated Club",  best_rating,  "by avg rating"),
-        ("👥", "Largest Squad",       biggest_sq,   "by player count"),
-        ("🔢", "Total Clubs",         str(team_agg["team"].nunique()), "in selection"),
-    ]
-    cols = st.columns(4, gap="small")
-    for col, (icon, label, value, sub) in zip(cols, kpis):
-        col.markdown(
-            f'<div class="kpi-card">'
-            f'<span class="kpi-icon">{icon}</span>'
-            f'<div class="kpi-label">{label}</div>'
-            f'<div class="kpi-value" style="font-size:18px;line-height:1.3">{value}</div>'
-            f'<div class="kpi-sub">{sub}</div>'
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+    c1, c2, c3, c4 = st.columns(4, gap="small")
+    with c1:
+        render_kpi("🏆", "Top Scoring Club", best_scoring_club, f"{best_goals_count} total goals scored", ACCENT_GREEN)
+    with c2:
+        render_kpi("⭐", "Highest Rated Club", highest_rated_club, f"★ {highest_rating_val:.2f} avg rating", ACCENT_GOLD)
+    with c3:
+        render_kpi("🛡️", "Defensive Wall", most_clean_sheets_club, f"{clean_sheets_val} clean sheets registered", ACCENT_BLUE)
+    with c4:
+        render_kpi("🔢", "Total Active Clubs", str(team_agg["team"].nunique()), "in current filtered pool", ACCENT_PURPLE)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Grouped bar ───────────────────────────────────────────────────────────
-    section("⚽", "Goals & Assists per Team")
-    ga_long = team_agg.melt(
+    # ── Goals & Assists per Team ──
+    render_section_header("⚽", "Goals & Assists Production per Club")
+    ga_melted = team_agg.melt(
         id_vars="team",
         value_vars=["total_goals", "total_assists"],
         var_name="metric", value_name="count",
     )
-    ga_long["metric"] = ga_long["metric"].map({"total_goals": "Goals", "total_assists": "Assists"})
+    ga_melted["metric"] = ga_melted["metric"].map({"total_goals": "Goals", "total_assists": "Assists"})
     fig_ga = px.bar(
-        ga_long, x="team", y="count", color="metric", barmode="group",
-        labels={"team": "Team", "count": "Count", "metric": ""},
-        color_discrete_map={"Goals": ACCENT, "Assists": ACCENT2},
+        ga_melted, x="team", y="count", color="metric", barmode="group",
+        labels={"team": "Club", "count": "Count", "metric": ""},
+        color_discrete_map={"Goals": ACCENT_GREEN, "Assists": ACCENT_CYAN},
         text_auto=True,
     )
-    fig_ga.update_traces(textfont_size=10, textangle=0,
-                         marker_line_color="rgba(0,0,0,0)", textposition="outside")
-    fig_ga.update_layout(uniformtext_minsize=8, uniformtext_mode="hide")
-    fig_ga = style(fig_ga, height=420)
-    chart_wrap(fig_ga)
+    fig_ga.update_traces(textposition="outside", marker_line_color="rgba(0,0,0,0)")
+    fig_ga = style_chart(fig_ga, height=420)
+    st.plotly_chart(fig_ga, use_container_width=True)
 
+    # ── Squad Composition & Avg Rating ──
     col1, col2 = st.columns(2, gap="medium")
-
-    # ── Stacked bar ───────────────────────────────────────────────────────────
     with col1:
-        section("🎽", "Squad Composition")
+        render_section_header("🎽", "Squad Composition by Position")
         pos_team = (
             df.groupby(["team", "position"], as_index=False)["player_name"]
             .nunique()
@@ -747,217 +707,247 @@ def render_team_analysis(df: pd.DataFrame) -> None:
         )
         fig_pos = px.bar(
             pos_team, x="team", y="count", color="position", barmode="stack",
-            labels={"team": "Team", "count": "Players", "position": "Position"},
+            labels={"team": "Club", "count": "Players", "position": "Position"},
             color_discrete_map=POSITION_COLORS,
         )
-        fig_pos.update_traces(marker_line_color="rgba(0,0,0,0)")
-        fig_pos = style(fig_pos, height=380)
-        chart_wrap(fig_pos)
+        fig_pos = style_chart(fig_pos, height=380)
+        st.plotly_chart(fig_pos, use_container_width=True)
 
-    # ── Summary table ─────────────────────────────────────────────────────────
     with col2:
-        section("📊", "Team Summary")
-        st.dataframe(
-            team_agg.rename(columns={
-                "team":           "Team",
-                "total_goals":    "Goals",
-                "total_assists":  "Assists",
-                "avg_rating":     "Avg Rating",
-                "player_count":   "Players",
-                "total_minutes":  "Minutes",
-            }),
-            use_container_width=True,
-            height=380,
-            hide_index=True,
-        )
+        render_section_header("⭐", "Average Match Rating by Club")
+        rat_sorted = team_agg.sort_values("avg_rating", ascending=True)
+        fig_rat = go.Figure(go.Bar(
+            x=rat_sorted["avg_rating"],
+            y=rat_sorted["team"],
+            orientation="h",
+            marker=dict(
+                color=rat_sorted["avg_rating"],
+                colorscale=[[0, "#162033"], [1, ACCENT_GREEN]],
+                showscale=False,
+            ),
+            text=rat_sorted["avg_rating"],
+            textposition="outside",
+            textfont=dict(color="#CBD5E1", size=11),
+            hovertemplate="<b>%{y}</b><br>Rating: <b>%{x:.2f} ⭐</b><extra></extra>",
+        ))
+        fig_rat = style_chart(fig_rat, height=380, show_legend=False)
+        fig_rat.update_layout(xaxis=dict(range=[6.0, 9.2]))
+        st.plotly_chart(fig_rat, use_container_width=True)
 
-    # ── Avg rating per team ───────────────────────────────────────────────────
-    section("⭐", "Average Rating by Team")
-    rating_sorted = team_agg.sort_values("avg_rating", ascending=True)
-    fig_rat = go.Figure(go.Bar(
-        x=rating_sorted["avg_rating"],
-        y=rating_sorted["team"],
-        orientation="h",
-        marker=dict(
-            color=rating_sorted["avg_rating"],
-            colorscale=[[0, "#1a3a2a"], [1, ACCENT]],
-            showscale=False,
-        ),
-        text=rating_sorted["avg_rating"],
-        textposition="outside",
-        textfont=dict(size=11, color="#94a3b8"),
-        hovertemplate="<b>%{y}</b><br>Avg Rating: %{x:.2f}<extra></extra>",
-    ))
-    fig_rat = style(fig_rat, height=360)
-    fig_rat.update_layout(xaxis_title="Avg Rating", xaxis=dict(range=[6, 9.5]))
-    chart_wrap(fig_rat)
-
-    render_stats_table(df)
+    # ── Team Power Rankings & Discipline Matrix (NEW) ──
+    render_team_power_rankings(df)
 
 
-# ── Page 4: Position Analysis ──────────────────────────────────────────────────
-def render_position_analysis(df: pd.DataFrame) -> None:
-    hero("📐", "Position Analysis", "Drill into Goalkeepers, Defenders, Midfielders and Forwards.")
-    st.markdown(DISCLAIMER, unsafe_allow_html=True)
+# ── Page 6: Positional Deep-Dive ───────────────────────────────────────────────
+def render_positional_deep_dive_page(df: pd.DataFrame) -> None:
+    render_hero(
+        "📐",
+        "Positional Deep-Dive",
+        "Granular positional role analysis, rating distributions, and specialized positional leaderboards.",
+        "Role Specialization",
+    )
+    st.markdown(DISCLAIMER_HTML, unsafe_allow_html=True)
 
     if empty_guard(df):
         return
 
-    # ── Position KPI row ──────────────────────────────────────────────────────
     pos_agg = (
         df.groupby("position")
-        .agg(count=("player_name","nunique"), goals=("goals","sum"), avg_rating=("rating","mean"))
+        .agg(
+            count=("player_name", "nunique"),
+            goals=("goals", "sum"),
+            assists=("assists", "sum"),
+            avg_rating=("rating", "mean"),
+        )
         .round({"avg_rating": 2})
     )
     pos_order = ["Goalkeeper", "Defender", "Midfielder", "Forward"]
-    pos_icons = {"Goalkeeper": "🧤", "Defender": "🛡️", "Midfielder": "🎯", "Forward": "🚀"}
 
-    cols = st.columns(4, gap="small")
+    # ── 4 Position KPI Cards ──
+    c1, c2, c3, c4 = st.columns(4, gap="small")
+    cols = [c1, c2, c3, c4]
     for col, pos in zip(cols, pos_order):
         if pos in pos_agg.index:
-            row = pos_agg.loc[pos]
-            col.markdown(
-                f'<div class="kpi-card" style="border-color:{POSITION_COLORS[pos]}">'
-                f'<span class="kpi-icon">{pos_icons[pos]}</span>'
-                f'<div class="kpi-label" style="color:{POSITION_COLORS[pos]}">{pos}</div>'
-                f'<div class="kpi-value" style="color:{POSITION_COLORS[pos]}">{int(row["count"])}</div>'
-                f'<div class="kpi-sub">{int(row["goals"])} goals · {row["avg_rating"]} avg rating</div>'
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+            p_row = pos_agg.loc[pos]
+            with col:
+                render_kpi(
+                    POSITION_ICONS.get(pos, "⚽"),
+                    pos,
+                    f"{int(p_row['count'])} Players",
+                    f"{int(p_row['goals'])} G · {int(p_row['assists'])} A · ★ {p_row['avg_rating']}",
+                    POSITION_COLORS[pos],
+                )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Box plot ──────────────────────────────────────────────────────────────
-    section("⭐", "Rating Distribution by Position")
+    # ── Rating Distribution Box Plot ──
+    render_section_header("⭐", "Performance Rating Distribution by Position")
     fig_box = px.box(
         df, x="position", y="rating", color="position",
         points="outliers",
         category_orders={"position": pos_order},
-        labels={"position": "Position", "rating": "Rating"},
+        labels={"position": "Position", "rating": "Match Rating"},
         color_discrete_map=POSITION_COLORS,
     )
-    fig_box.update_traces(
-        marker=dict(size=5, opacity=0.6),
-        line=dict(width=2),
-        boxmean=True,
-    )
-    fig_box.update_layout(showlegend=False)
-    fig_box = style(fig_box, height=380)
-    chart_wrap(fig_box)
+    fig_box.update_traces(boxmean=True, marker=dict(size=5, opacity=0.7))
+    fig_box = style_chart(fig_box, height=380, show_legend=False)
+    st.plotly_chart(fig_box, use_container_width=True)
 
-    # ── Side-by-side avg goals & avg assists ──────────────────────────────────
+    # ── Avg Goals & Avg Assists by Position ──
     col1, col2 = st.columns(2, gap="medium")
-
     with col1:
-        section("⚽", "Avg Goals by Position")
-        avg_goals = (
+        render_section_header("⚽", "Average Goals by Position")
+        avg_g = (
             df.groupby("position", as_index=False)["goals"].mean().round(2)
             .sort_values("goals", ascending=False)
         )
         fig_ag = px.bar(
-            avg_goals, x="position", y="goals", color="position",
+            avg_g, x="position", y="goals", color="position",
             labels={"position": "Position", "goals": "Avg Goals"},
             color_discrete_map=POSITION_COLORS,
             text="goals",
             category_orders={"position": pos_order},
         )
         fig_ag.update_traces(textposition="outside", marker_line_color="rgba(0,0,0,0)")
-        fig_ag.update_layout(showlegend=False)
-        fig_ag = style(fig_ag, height=340)
-        chart_wrap(fig_ag)
+        fig_ag = style_chart(fig_ag, height=340, show_legend=False)
+        st.plotly_chart(fig_ag, use_container_width=True)
 
     with col2:
-        section("🅰️", "Avg Assists by Position")
-        avg_ast = (
+        render_section_header("🅰️", "Average Assists by Position")
+        avg_a = (
             df.groupby("position", as_index=False)["assists"].mean().round(2)
             .sort_values("assists", ascending=False)
         )
         fig_aa = px.bar(
-            avg_ast, x="position", y="assists", color="position",
+            avg_a, x="position", y="assists", color="position",
             labels={"position": "Position", "assists": "Avg Assists"},
             color_discrete_map=POSITION_COLORS,
             text="assists",
             category_orders={"position": pos_order},
         )
         fig_aa.update_traces(textposition="outside", marker_line_color="rgba(0,0,0,0)")
-        fig_aa.update_layout(showlegend=False)
-        fig_aa = style(fig_aa, height=340)
-        chart_wrap(fig_aa)
+        fig_aa = style_chart(fig_aa, height=340, show_legend=False)
+        st.plotly_chart(fig_aa, use_container_width=True)
 
-    # ── Position-specific spotlight cards ─────────────────────────────────────
-    st.markdown("---")
-    section("🔦", "Position Spotlight")
+    # ── Positional Benchmark Radar (NEW) ──
+    render_section_header("🕸️", "Positional Benchmark Profile", "Comparative average attribute footprint for each pitch zone.")
+    pos_metrics = (
+        df.groupby("position")
+        .agg(
+            rating=("rating", "mean"),
+            pass_acc=("pass_accuracy", "mean"),
+            goals=("goals", "mean"),
+            assists=("assists", "mean"),
+            shots=("shots", "mean"),
+        )
+        .round(2)
+    )
 
-    c1, c2, c3, c4 = st.columns(4, gap="small")
+    # Normalize each column across positions
+    norm_pos = pos_metrics.copy()
+    for col in norm_pos.columns:
+        mx = pos_metrics[col].max()
+        norm_pos[col] = (pos_metrics[col] / mx) if mx > 0 else 0.5
 
-    with c1:
-        st.markdown(f'<p style="color:{POSITION_COLORS["Goalkeeper"]};font-weight:700;font-size:14px">🧤 Goalkeepers</p>', unsafe_allow_html=True)
+    radar_cats = ["Rating", "Pass Acc", "Goals", "Assists", "Shots"]
+    fig_pos_radar = go.Figure()
+    for pos in pos_order:
+        if pos in norm_pos.index:
+            row_vals = norm_pos.loc[pos].tolist() + norm_pos.loc[pos].tolist()[:1]
+            fig_pos_radar.add_trace(go.Scatterpolar(
+                r=row_vals,
+                theta=radar_cats + [radar_cats[0]],
+                fill="toself",
+                name=pos,
+                line=dict(color=POSITION_COLORS[pos], width=2),
+                fillcolor=POSITION_COLORS[pos].replace("#", "rgba(") + ",0.12)",
+            ))
+    fig_pos_radar.update_layout(
+        polar=dict(
+            bgcolor="#0D131F",
+            radialaxis=dict(visible=True, range=[0, 1.1], color="#475569", gridcolor="#1F293D"),
+            angularaxis=dict(color="#94A3B8", gridcolor="#1F293D"),
+        ),
+        showlegend=True,
+    )
+    fig_pos_radar = style_chart(fig_pos_radar, height=420, legend_inside=False)
+    st.plotly_chart(fig_pos_radar, use_container_width=True)
+
+    # ── Specialized Position Spotlights ──
+    render_section_header("🔦", "Position Spotlights & Specialists", "Role-specific performance masters")
+    sp1, sp2, sp3, sp4 = st.columns(4, gap="small")
+
+    with sp1:
+        st.markdown(f'<p style="color:{POSITION_COLORS["Goalkeeper"]}; font-weight:800; font-size:14px;">🧤 Goalkeeper Fortress</p>', unsafe_allow_html=True)
         gk_df = df[df["position"] == "Goalkeeper"]
         if gk_df.empty:
-            st.info("No Goalkeepers in filter.")
+            st.info("No Goalkeepers in current selection.")
         else:
-            gk_cs = gk_df.groupby("player_name", as_index=False)["clean_sheets"].sum().nlargest(8, "clean_sheets")
-            gk_cs.columns = ["Player", "Clean Sheets"]
+            gk_top = gk_df.groupby("player_name", as_index=False)["clean_sheets"].sum().nlargest(8, "clean_sheets")
+            gk_top.columns = ["Player", "Clean Sheets"]
             st.metric("Avg Clean Sheets", round(gk_df["clean_sheets"].mean(), 1))
-            st.dataframe(gk_cs, use_container_width=True, hide_index=True, height=260)
+            st.dataframe(gk_top, use_container_width=True, hide_index=True, height=260)
 
-    with c2:
-        st.markdown(f'<p style="color:{POSITION_COLORS["Defender"]};font-weight:700;font-size:14px">🛡️ Defenders</p>', unsafe_allow_html=True)
+    with sp2:
+        st.markdown(f'<p style="color:{POSITION_COLORS["Defender"]}; font-weight:800; font-size:14px;">🛡️ Defensive Architects</p>', unsafe_allow_html=True)
         def_df = df[df["position"] == "Defender"]
         if def_df.empty:
-            st.info("No Defenders in filter.")
+            st.info("No Defenders in current selection.")
         else:
-            def_pa = def_df.groupby("player_name", as_index=False)["pass_accuracy"].mean().round(1).nlargest(8, "pass_accuracy")
-            def_pa.columns = ["Player", "Pass Acc. %"]
-            st.metric("Avg Pass Acc.", f"{round(def_df['pass_accuracy'].mean(), 1)}%")
-            st.dataframe(def_pa, use_container_width=True, hide_index=True, height=260)
+            def_top = def_df.groupby("player_name", as_index=False)["pass_accuracy"].mean().round(1).nlargest(8, "pass_accuracy")
+            def_top.columns = ["Player", "Pass Acc %"]
+            st.metric("Avg Pass Accuracy", f"{round(def_df['pass_accuracy'].mean(), 1)}%")
+            st.dataframe(def_top, use_container_width=True, hide_index=True, height=260)
 
-    with c3:
-        st.markdown(f'<p style="color:{POSITION_COLORS["Midfielder"]};font-weight:700;font-size:14px">🎯 Midfielders</p>', unsafe_allow_html=True)
+    with sp3:
+        st.markdown(f'<p style="color:{POSITION_COLORS["Midfielder"]}; font-weight:800; font-size:14px;">🎯 Midfield Virtuosos</p>', unsafe_allow_html=True)
         mid_df = df[df["position"] == "Midfielder"]
         if mid_df.empty:
-            st.info("No Midfielders in filter.")
+            st.info("No Midfielders in current selection.")
         else:
-            mid_ast = mid_df.groupby("player_name", as_index=False)["assists"].sum().nlargest(8, "assists")
-            mid_ast.columns = ["Player", "Assists"]
+            mid_top = mid_df.groupby("player_name", as_index=False)["assists"].sum().nlargest(8, "assists")
+            mid_top.columns = ["Player", "Assists"]
             st.metric("Avg Assists", round(mid_df["assists"].mean(), 1))
-            st.dataframe(mid_ast, use_container_width=True, hide_index=True, height=260)
+            st.dataframe(mid_top, use_container_width=True, hide_index=True, height=260)
 
-    with c4:
-        st.markdown(f'<p style="color:{POSITION_COLORS["Forward"]};font-weight:700;font-size:14px">🚀 Forwards</p>', unsafe_allow_html=True)
+    with sp4:
+        st.markdown(f'<p style="color:{POSITION_COLORS["Forward"]}; font-weight:800; font-size:14px;">🚀 Clinical Marksmen</p>', unsafe_allow_html=True)
         fwd_df = df[(df["position"] == "Forward") & (df["shots"] > 0)].copy()
         if fwd_df.empty:
             st.info("No Forwards with shots.")
         else:
-            fwd_gps = (
+            fwd_top = (
                 fwd_df.groupby("player_name", as_index=False)
-                .agg(goals=("goals","sum"), shots=("shots","sum"))
-                .assign(gps=lambda x: (x["goals"]/x["shots"]).round(3))
-                .nlargest(8, "gps")
+                .agg(goals=("goals", "sum"), shots=("shots", "sum"))
+                .assign(conv=lambda x: (x["goals"] / x["shots"] * 100).round(1))
+                .nlargest(8, "conv")
             )
-            fwd_gps.columns = ["Player", "Goals", "Shots", "G/Shot"]
-            st.metric("Avg Goals/Shot", round((fwd_df["goals"]/fwd_df["shots"]).mean(), 3))
-            st.dataframe(fwd_gps, use_container_width=True, hide_index=True, height=260)
+            fwd_top.columns = ["Player", "Goals", "Shots", "Conv %"]
+            st.metric("Avg Conversion Rate", f"{round((fwd_df['goals'].sum() / max(1, fwd_df['shots'].sum())) * 100, 1)}%")
+            st.dataframe(fwd_top, use_container_width=True, hide_index=True, height=260)
 
     render_stats_table(df)
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Main Application Router ────────────────────────────────────────────────────
 def main() -> None:
-    raw_df = load_data()
-    filtered_df, page = build_sidebar(raw_df)
+    raw_df = load_and_enrich_data()
+    filtered_df, page, metric_mode = build_sidebar(raw_df)
 
-    page_key = page.split("  ", 1)[-1].strip()   # strip icon prefix
+    page_clean = page.split("  ", 1)[-1].strip()
 
-    if page_key == "Overview":
-        render_overview(filtered_df)
-    elif page_key == "Player Analysis":
-        render_player_analysis(filtered_df)
-    elif page_key == "Team Analysis":
-        render_team_analysis(filtered_df)
-    elif page_key == "Position Analysis":
-        render_position_analysis(filtered_df)
+    if "Overview" in page_clean:
+        render_overview(filtered_df, metric_mode)
+    elif "Tactical Pitch" in page_clean:
+        render_tactical_pitch_page(filtered_df)
+    elif "Scouting Dossier" in page_clean:
+        render_scouting_page(filtered_df)
+    elif "Player Comparison" in page_clean:
+        render_player_comparison_page(filtered_df, metric_mode)
+    elif "Team Analytics" in page_clean:
+        render_team_analytics_page(filtered_df, metric_mode)
+    elif "Positional" in page_clean:
+        render_positional_deep_dive_page(filtered_df)
 
 
 if __name__ == "__main__":
