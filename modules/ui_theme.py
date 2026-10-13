@@ -135,44 +135,55 @@ def inject_custom_css(theme: str = "dark"):
         header[data-testid="stHeader"] {{
             background: transparent !important;
             color: {text_main} !important;
-            z-index: 1000 !important;
+            z-index: 999990 !important;
+            pointer-events: none !important;
         }}
 
-        #MainMenu, footer, .stDeployButton, [data-testid="stToolbar"] {{
+        /* Hide Deploy button and Main Menu ONLY - NEVER hide stToolbar which houses the drawer expand button! */
+        #MainMenu, footer, .stDeployButton, [data-testid="stDeployButton"], [data-testid="stMainMenu"] {{
             visibility: hidden !important;
             display: none !important;
         }}
 
-        /* Styled Drawer Collapse & Expand Buttons */
-        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="stToolbar"] {{
+            background: transparent !important;
+            pointer-events: none !important;
+        }}
+
+        /* Styled Drawer Collapse & Expand Buttons (Modern Streamlit 1.35+ & legacy compatibility) */
+        button[data-testid="stExpandSidebarButton"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarCollapseButton"] button,
         [data-testid="stSidebarHeader"] button,
-        button[data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarCollapsedControl"],
         button[data-testid="stBaseButton-header"] {{
-            display: flex !important;
+            pointer-events: auto !important;
+            display: inline-flex !important;
             visibility: visible !important;
             opacity: 1 !important;
             background: {bg_card} !important;
-            border: 1px solid {border_card} !important;
+            border: 1.5px solid #10B981 !important;
             border-radius: 8px !important;
             color: #10B981 !important;
-            box-shadow: {card_shadow} !important;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25) !important;
             transition: all 0.2s ease !important;
             cursor: pointer !important;
+            z-index: 999999 !important;
         }}
 
-        [data-testid="stSidebarCollapsedControl"]:hover,
-        [data-testid="stSidebarHeader"] button:hover,
-        button[data-testid="stSidebarCollapseButton"]:hover,
-        button[data-testid="stBaseButton-header"]:hover {{
+        button[data-testid="stExpandSidebarButton"]:hover,
+        [data-testid="stSidebarCollapseButton"]:hover,
+        [data-testid="stSidebarCollapseButton"] button:hover,
+        [data-testid="stSidebarHeader"] button:hover {{
+            background: {"#162033" if is_dark else "#F1F5F9"} !important;
             border-color: #10B981 !important;
-            box-shadow: 0 0 12px {accent_glow} !important;
-            transform: scale(1.04) !important;
+            box-shadow: 0 0 16px {accent_glow} !important;
+            transform: scale(1.08) !important;
         }}
 
-        [data-testid="stSidebarCollapsedControl"] svg,
-        [data-testid="stSidebarHeader"] button svg,
-        button[data-testid="stSidebarCollapseButton"] svg,
-        button[data-testid="stBaseButton-header"] svg {{
+        button[data-testid="stExpandSidebarButton"] svg,
+        [data-testid="stSidebarCollapseButton"] svg,
+        [data-testid="stSidebarHeader"] button svg {{
             fill: #10B981 !important;
             stroke: #10B981 !important;
         }}
