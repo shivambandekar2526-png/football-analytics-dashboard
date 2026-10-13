@@ -116,9 +116,53 @@ def inject_custom_css():
             color: #E2E8F0;
         }
 
-        /* Hide unnecessary Streamlit default chrome */
-        #MainMenu, footer, header { visibility: hidden; height: 0; }
-        .stDeployButton { display: none; }
+        /* ── Streamlit Header & Drawer Toggle Controls ── */
+        header[data-testid="stHeader"] {
+            background: transparent !important;
+            color: #E2E8F0 !important;
+            z-index: 1000 !important;
+        }
+
+        /* Hide default deploy button, footer, and menu while preserving drawer controls */
+        #MainMenu, footer, .stDeployButton, [data-testid="stToolbar"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
+
+        /* Drawer open/close buttons (Visible, styled, and clickable) */
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="stSidebarHeader"] button,
+        button[data-testid="stSidebarCollapseButton"],
+        button[data-testid="stBaseButton-header"] {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: #111827 !important;
+            border: 1px solid #1F293D !important;
+            border-radius: 8px !important;
+            color: #00FF87 !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"]:hover,
+        [data-testid="stSidebarHeader"] button:hover,
+        button[data-testid="stSidebarCollapseButton"]:hover,
+        button[data-testid="stBaseButton-header"]:hover {
+            background: #162033 !important;
+            border-color: #00FF87 !important;
+            box-shadow: 0 0 14px rgba(0, 255, 135, 0.35) !important;
+            transform: scale(1.05) !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"] svg,
+        [data-testid="stSidebarHeader"] button svg,
+        button[data-testid="stSidebarCollapseButton"] svg,
+        button[data-testid="stBaseButton-header"] svg {
+            fill: #00FF87 !important;
+            stroke: #00FF87 !important;
+        }
 
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 7px; height: 7px; }
