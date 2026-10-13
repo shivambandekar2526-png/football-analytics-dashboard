@@ -18,6 +18,7 @@ from modules.ui_theme import (
     ACCENT_RED,
     BORDER_SUBTLE,
     style_chart,
+    hex_to_rgba,
 )
 
 
@@ -198,7 +199,7 @@ def render_scouting_dossier(df: pd.DataFrame, player_name: str):
             fill="toself",
             name=player_name,
             line=dict(color=pos_color, width=2.5),
-            fillcolor=pos_color.replace("#", "rgba(") + ",0.18)" if pos_color.startswith("#") else "rgba(0,255,135,0.2)",
+            fillcolor=hex_to_rgba(pos_color, 0.18),
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=bench_vals + [bench_vals[0]],

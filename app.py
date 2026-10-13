@@ -30,6 +30,7 @@ from modules.ui_theme import (
     TEAM_BADGES,
     CHART_PALETTE,
     DISCLAIMER_HTML,
+    hex_to_rgba,
 )
 from modules.pitch_board import (
     FORMATIONS,
@@ -540,7 +541,7 @@ def render_player_comparison_page(df: pd.DataFrame, metric_mode: str) -> None:
                     fill="toself",
                     name=p,
                     line=dict(color=p_color, width=2.5),
-                    fillcolor=p_color.replace("#", "rgba(") + ",0.14)" if p_color.startswith("#") else "rgba(0,255,135,0.2)",
+                    fillcolor=hex_to_rgba(p_color, 0.14),
                 ))
 
             fig_radar.update_layout(
@@ -860,7 +861,7 @@ def render_positional_deep_dive_page(df: pd.DataFrame) -> None:
                 fill="toself",
                 name=pos,
                 line=dict(color=POSITION_COLORS[pos], width=2),
-                fillcolor=POSITION_COLORS[pos].replace("#", "rgba(") + ",0.12)",
+                fillcolor=hex_to_rgba(POSITION_COLORS[pos], 0.12),
             ))
     fig_pos_radar.update_layout(
         polar=dict(

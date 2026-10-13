@@ -86,6 +86,22 @@ DISCLAIMER_HTML = """
 """
 
 
+def hex_to_rgba(hex_code: str, alpha: float = 0.2) -> str:
+    """Converts a hex color code (e.g. #00FF87 or #FFF) to a valid Plotly rgba(r, g, b, a) string."""
+    clean = str(hex_code).lstrip("#")
+    if len(clean) == 3:
+        clean = "".join([c * 2 for c in clean])
+    if len(clean) == 6:
+        try:
+            r = int(clean[0:2], 16)
+            g = int(clean[2:4], 16)
+            b = int(clean[4:6], 16)
+            return f"rgba({r}, {g}, {b}, {alpha})"
+        except ValueError:
+            pass
+    return f"rgba(0, 255, 135, {alpha})"
+
+
 def inject_custom_css():
     """Injects high-end, responsive dark theme styling."""
     st.markdown(
