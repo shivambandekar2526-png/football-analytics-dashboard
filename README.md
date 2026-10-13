@@ -8,15 +8,14 @@ A portfolio-grade, professional interactive football analytics platform built wi
 
 ## 🌟 Key Features & Views
 
-| View / Module | Capabilities & Highlights |
-|---|---|
-| **🏠 Overview & Pulse** | 6 high-impact KPI cards (Players, Goals, Assists, Goal Contrib, Minutes, Rating) · Top-10 Scorers (position colored) · Top-10 Highest Rated · Top-10 Playmakers (Assists) · Season-over-season output trajectory line chart · Interactive player table. |
-| **⚽ Tactical Pitch & Best XI** | **[NEW]** Regulation football pitch visualization with authentic markings · Custom tactical formation switch (4-3-3 Attack, 4-4-2 Classic, 4-2-3-1 Modern, 3-5-2 Fluid) · Algorithmic Best XI Dream Team selector · Glowing player badges, ratings, and on-pitch hover telemetry · Squad statistics & Starting XI roster. |
-| **🌟 Scouting Dossier** | **[NEW]** EA Sports FC / FIFA Ultimate Team inspired player scouting cards · 6 core FIFA attributes (Shooting, Passing, Playmaking, Stamina, Defending, Rating) · Dynamic radar comparison against positional cohort benchmarks · Career form trajectory across seasons. |
-| **🔍 Player Comparison & Duel** | **[NEW] 1v1 Combat Duel Arena** with dual-track progress bars and automatic category winner detection · Multi-player normalized radar comparison (2–5 players) · Goals vs Assists scatter · Shots vs Goals with efficiency regression trendline · **[NEW] Finishing Efficiency Quadrant Matrix** (Volume vs Conversion) · Pass accuracy vs Rating scatter. |
-| **🏟️ Team Analytics & Standings** | Club KPI cards · Grouped goals & assists bar chart · Squad composition stacked bar · Club average rating leaderboard · **[NEW] Attacking vs Defending Dominance Matrix** (Goals vs Clean Sheets) · **[NEW] Fair Play & Disciplinary Leaderboard** · Comprehensive club standings table. |
-| **📐 Positional Deep-Dive** | Position KPI cards (GK, DEF, MID, FWD) · Rating distribution box plot with jitter · Avg goals & avg assists comparison · **[NEW] Positional attribute benchmark radar** · 4 specialized spotlight cards (GK Clean Sheets, DEF Pass Accuracy, MID Assists, FWD Conversion %). |
-| **⚡ Global Controls & Filters** | Metric mode switch (Raw Totals vs Per 90 Minutes) · Quick preset filters (Wonderkids, Prime Stars, Veterans, Elite Tier, Goal Machines) · Season, Club, Position multiselects · Age range slider · Min minutes slider · Player name search · Dual export hub (CSV & JSON). |
+| **🌓 Day & Night Modes** | **[NEW] One-click Theme Switcher** between 🌙 **Night Mode** (deep tactical dark theme) and ☀️ **Day Mode** (clean executive light theme) with fully reactive Plotly color palettes and typography. |
+| **🏠 Overview & Pulse** | 4 spacious core KPI cards (Players, Goals, Assists, Avg Rating) · Organized tabs for Top Scorers & Playmakers, Rating Leaders, and Season Production Trajectory · Interactive player table. |
+| **⚽ Tactical Pitch & Best XI** | Regulation football pitch visualization with authentic markings · Custom tactical formation switch (4-3-3 Attack, 4-4-2 Classic, 4-2-3-1 Modern, 3-5-2 Fluid) · Algorithmic Best XI Dream Team selector · Glowing player badges, ratings, and on-pitch hover telemetry · Squad statistics & Starting XI roster. |
+| **🌟 Scouting Dossier** | EA Sports FC / FIFA Ultimate Team inspired player scouting cards · 6 core FIFA attributes (Shooting, Passing, Playmaking, Stamina, Defending, Rating) · Dynamic radar comparison against positional cohort benchmarks · Career form trajectory across seasons. |
+| **🔍 Player Comparison & Duel** | **1v1 Combat Duel Arena** with dual-track progress bars and automatic category winner detection · Multi-player normalized radar comparison (2–5 players) · Goals vs Assists scatter · Shots vs Goals with efficiency regression trendline · **Finishing Efficiency Quadrant Matrix** (Volume vs Conversion) · Pass accuracy vs Rating scatter. |
+| **🏟️ Team Analytics & Standings** | Club KPI cards · Grouped goals & assists bar chart · Squad composition stacked bar · Club average rating leaderboard · **Attacking vs Defending Dominance Matrix** (Goals vs Clean Sheets) · **Fair Play & Disciplinary Leaderboard** · Comprehensive club standings table. |
+| **📐 Positional Deep-Dive** | Position KPI cards (GK, DEF, MID, FWD) · Rating distribution box plot with jitter · Avg goals & avg assists comparison · Specialized spotlight cards (GK Clean Sheets, DEF Pass Accuracy, MID Assists, FWD Conversion %). |
+| **⚡ Global Controls & Filters** | Clean expandable filter console (`st.expander`) · Metric mode switch (Raw Totals vs Per 90 Minutes) · Quick preset filters (Wonderkids, Prime Stars, Veterans, Elite Tier, Goal Machines) · Dual export hub (CSV & JSON). |
 
 ---
 

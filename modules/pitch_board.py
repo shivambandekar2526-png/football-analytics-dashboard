@@ -205,8 +205,9 @@ def select_best_xi(df: pd.DataFrame, formation_name: str = "4-3-3 Attack") -> tu
     return slots_data, squad_df
 
 
-def render_best_xi_pitch(slots_data: list[dict], formation_name: str) -> go.Figure:
+def render_best_xi_pitch(slots_data: list[dict], formation_name: str, theme: str = "dark") -> go.Figure:
     """Renders the Best XI interactive tactical pitch chart in Plotly."""
+    is_dark = (theme == "dark")
     fig = go.Figure()
     fig = draw_tactical_pitch(fig)
 
@@ -235,7 +236,7 @@ def render_best_xi_pitch(slots_data: list[dict], formation_name: str) -> go.Figu
             stat_str = f"🧤 Clean Sheets: <b>{c_sheet}</b>" if pos == "Goalkeeper" else f"⚽ Goals: <b>{g}</b> | 🅰️ Assists: <b>{a}</b>"
             hover_texts.append(
                 f"<b>{name}</b> ({role})<br>"
-                f"Rating: <b style='color:#00FF87;'>{rat:.2f} ⭐</b><br>"
+                f"Rating: <b style='color:#10B981;'>{rat:.2f} ⭐</b><br>"
                 f"Team: {badge} {team}<br>"
                 f"Nation: {flag} {nat}<br>"
                 f"{stat_str}"
@@ -268,11 +269,11 @@ def render_best_xi_pitch(slots_data: list[dict], formation_name: str) -> go.Figu
             fig.add_annotation(
                 x=s["x"],
                 y=s["y"] - 4.2,
-                text=f"<b>{p['player_name']}</b><br><span style='color:#00FF87; font-size:10px;'>★ {p['rating']:.2f}</span>",
+                text=f"<b>{p['player_name']}</b><br><span style='color:#10B981; font-size:10px;'>★ {p['rating']:.2f}</span>",
                 showarrow=False,
                 font=dict(size=10, color="#FFFFFF", family="Plus Jakarta Sans, sans-serif"),
-                bgcolor="rgba(10, 14, 23, 0.75)",
-                bordercolor=BORDER_SUBTLE,
+                bgcolor="rgba(15, 23, 42, 0.85)",
+                bordercolor=BORDER_SUBTLE if is_dark else "#CBD5E1",
                 borderwidth=1,
                 borderpad=3,
             )
@@ -281,11 +282,11 @@ def render_best_xi_pitch(slots_data: list[dict], formation_name: str) -> go.Figu
     fig.update_yaxes(range=[-3, 71], visible=False, scaleanchor="x", scaleratio=1, fixedrange=True)
 
     fig.update_layout(
-        template="plotly_dark",
-        plot_bgcolor="#0A1512",
-        paper_bgcolor="#0A1512",
+        template="plotly_dark" if is_dark else "plotly_white",
+        plot_bgcolor="#064E3B" if not is_dark else "#0A1512",
+        paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=10, r=10, t=30, b=10),
-        height=540,
+        height=520,
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -293,10 +294,10 @@ def render_best_xi_pitch(slots_data: list[dict], formation_name: str) -> go.Figu
             y=1.06,
             xanchor="center",
             yanchor="bottom",
-            bgcolor="rgba(10, 14, 23, 0.7)",
-            bordercolor=BORDER_SUBTLE,
+            bgcolor="rgba(15, 23, 42, 0.8)" if is_dark else "rgba(255, 255, 255, 0.9)",
+            bordercolor=BORDER_SUBTLE if is_dark else "#CBD5E1",
             borderwidth=1,
-            font=dict(size=11, color="#CBD5E1"),
+            font=dict(size=11, color="#CBD5E1" if is_dark else "#334155"),
         ),
     )
     return fig

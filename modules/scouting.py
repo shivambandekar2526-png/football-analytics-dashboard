@@ -58,8 +58,9 @@ def compute_player_attributes(player_df: pd.DataFrame, position_df: pd.DataFrame
     }
 
 
-def render_scouting_dossier(df: pd.DataFrame, player_name: str):
+def render_scouting_dossier(df: pd.DataFrame, player_name: str, theme: str = "dark"):
     """Renders the comprehensive player scouting dossier."""
+    is_dark = (theme == "dark")
     p_df = df[df["player_name"] == player_name].sort_values("season")
     if p_df.empty:
         st.warning("Player not found in current dataset selection.")
@@ -211,14 +212,14 @@ def render_scouting_dossier(df: pd.DataFrame, player_name: str):
         ))
         fig_radar.update_layout(
             polar=dict(
-                bgcolor="#0D131F",
-                radialaxis=dict(visible=True, range=[0, 1], color="#475569", gridcolor="#1F293D"),
-                angularaxis=dict(color="#94A3B8", gridcolor="#1F293D"),
+                bgcolor="#0D131F" if is_dark else "#FFFFFF",
+                radialaxis=dict(visible=True, range=[0, 1], color="#475569" if is_dark else "#94A3B8", gridcolor="#1F293D" if is_dark else "#F1F5F9"),
+                angularaxis=dict(color="#94A3B8" if is_dark else "#334155", gridcolor="#1F293D" if is_dark else "#F1F5F9"),
             ),
             height=320,
             margin=dict(l=20, r=20, t=20, b=20),
             showlegend=True,
-            legend=dict(x=0.01, y=0.99, bgcolor="rgba(17,24,39,0.8)", bordercolor=BORDER_SUBTLE),
+            legend=dict(x=0.01, y=0.99, bgcolor="rgba(17,24,39,0.8)" if is_dark else "rgba(255,255,255,0.9)", bordercolor=BORDER_SUBTLE if is_dark else "#E2E8F0"),
             paper_bgcolor="rgba(0,0,0,0)",
         )
         st.plotly_chart(fig_radar, use_container_width=True)
@@ -227,8 +228,10 @@ def render_scouting_dossier(df: pd.DataFrame, player_name: str):
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="pro-section">
-            <div class="pro-section-title"><span>📈</span> Season Progression & Form History</div>
+        <div class="section-bar">
+            <div>
+                <h3 class="section-bar-title"><span>📈</span> Season Progression & Form History</h3>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -248,7 +251,7 @@ def render_scouting_dossier(df: pd.DataFrame, player_name: str):
             textposition="top center",
             name="Rating",
         ))
-        fig_r = style_chart(fig_r, height=260, title="Match Rating Trend")
+        fig_r = style_chart(fig_r, theme=theme, height=260, title="Match Rating Trend")
         fig_r.update_layout(yaxis=dict(range=[5.5, 10]))
         st.plotly_chart(fig_r, use_container_width=True)
 
@@ -265,7 +268,7 @@ def render_scouting_dossier(df: pd.DataFrame, player_name: str):
             name="Assists", marker=dict(color=ACCENT_CYAN),
             text=p_df["assists"], textposition="outside",
         ))
-        fig_ga = style_chart(fig_ga, height=260, title="Goals & Assists by Season")
+        fig_ga = style_chart(fig_ga, theme=theme, height=260, title="Goals & Assists by Season")
         fig_ga.update_layout(barmode="group")
         st.plotly_chart(fig_ga, use_container_width=True)
 

@@ -71,7 +71,7 @@ def enrich_dataset(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def render_finishing_efficiency_matrix(df: pd.DataFrame) -> go.Figure:
+def render_finishing_efficiency_matrix(df: pd.DataFrame, theme: str = "dark") -> go.Figure:
     """Renders the Clinical Finishing Efficiency Quadrant Matrix (Shots vs Conversion Rate)."""
     fwd_mid = df[(df["position"].isin(["Forward", "Midfielder"])) & (df["shots"] >= 10)].copy()
 
@@ -109,11 +109,11 @@ def render_finishing_efficiency_matrix(df: pd.DataFrame) -> go.Figure:
     fig.add_vline(x=avg_shots, line_dash="dash", line_color="rgba(255,255,255,0.25)", annotation_text="Median Shots", annotation_position="top left")
     fig.add_hline(y=avg_conv, line_dash="dash", line_color="rgba(255,255,255,0.25)", annotation_text="Median Conv %", annotation_position="bottom right")
 
-    fig = style_chart(fig, height=440, title="Finishing Matrix: Volume vs Conversion Efficiency")
+    fig = style_chart(fig, theme=theme, height=440, title="Finishing Matrix: Volume vs Conversion Efficiency")
     return fig
 
 
-def render_creative_playmaker_matrix(df: pd.DataFrame) -> go.Figure:
+def render_creative_playmaker_matrix(df: pd.DataFrame, theme: str = "dark") -> go.Figure:
     """Renders Playmaker Matrix (Pass Accuracy vs Total Assists)."""
     fig = px.scatter(
         df[df["appearances"] >= 5],
@@ -136,11 +136,11 @@ def render_creative_playmaker_matrix(df: pd.DataFrame) -> go.Figure:
         },
         color_discrete_map=POSITION_COLORS,
     )
-    fig = style_chart(fig, height=420, title="Creative Matrix: Ball Distribution vs Key Assists")
+    fig = style_chart(fig, theme=theme, height=420, title="Creative Matrix: Ball Distribution vs Key Assists")
     return fig
 
 
-def render_team_power_rankings(df: pd.DataFrame):
+def render_team_power_rankings(df: pd.DataFrame, theme: str = "dark"):
     """Renders comprehensive club power rankings, attack vs defense index, and fair play table."""
     team_summary = (
         df.groupby("team", as_index=False)
@@ -194,7 +194,7 @@ def render_team_power_rankings(df: pd.DataFrame):
             text="team",
         )
         fig_matrix.update_traces(textposition="top center", textfont_size=10)
-        fig_matrix = style_chart(fig_matrix, height=420, show_legend=False, title="Club Matrix: Attack vs Defense Dominance")
+        fig_matrix = style_chart(fig_matrix, theme=theme, height=420, show_legend=False, title="Club Matrix: Attack vs Defense Dominance")
         st.plotly_chart(fig_matrix, use_container_width=True)
 
     with c2:
@@ -215,15 +215,17 @@ def render_team_power_rankings(df: pd.DataFrame):
             name="Red Cards (3 pts penalty)",
             marker=dict(color="#EF4444"),
         ))
-        fig_fp = style_chart(fig_fp, height=420, title="Fair Play & Disciplinary Leaderboard (Lower is Better)")
+        fig_fp = style_chart(fig_fp, theme=theme, height=420, title="Fair Play & Disciplinary Leaderboard (Lower is Better)")
         fig_fp.update_layout(barmode="stack", xaxis_title="Penalty Points")
         st.plotly_chart(fig_fp, use_container_width=True)
 
     # Detailed Rankings Table
     st.markdown(
         """
-        <div class="pro-section">
-            <div class="pro-section-title"><span>📋</span> Club Comprehensive Standings Matrix</div>
+        <div class="section-bar">
+            <div>
+                <h3 class="section-bar-title"><span>📋</span> Club Comprehensive Standings Matrix</h3>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
